@@ -31,6 +31,10 @@ func NewStore(db *clover.DB) *Store {
 		if err != nil {
 			log.Fatal("failed to create roomId index for collection:", collection, err)
 		}
+		err = db.CreateIndex(collection, "date")
+		if err != nil {
+			log.Fatal("failed to create date index for collection:", collection, err)
+		}
 	}
 	return &Store{db: db}
 }
@@ -42,6 +46,10 @@ func (s *Store) Save(m cicada.ChatMessage) error {
 
 // GetWindow fetches a page of chat messages, sorted by date.
 func (s *Store) GetWindow(roomId string, from, size int) ([]cicada.ChatMessage, error) {
+	if from < 0 || size <= 0 {
+		return nil, cicada.ErrorBadRequest
+	}
+
 	q := query.NewQuery(collection).
 		Skip(from).
 		Limit(size).
