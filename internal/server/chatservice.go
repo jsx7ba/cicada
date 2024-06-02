@@ -16,22 +16,80 @@ import (
 
 type ChatService struct {
 	m       *sync.Mutex
-	clients map[string]chan []byte
+	clients map[string]subscription
 	cs      *chat.Store
 	rs      *room.Store
 }
 
-func New(cs *chat.Store, rs *room.Store) *ChatService {
-	return &ChatService{
+type subscription struct {
+	message chan []byte
+	quit    chan interface{}
+}
+
+func New(quitChan chan interface{}, cs *chat.Store, rs *room.Store) *ChatService {
+	service := &ChatService{
 		m:       &sync.Mutex{},
-		clients: make(map[string]chan []byte),
+		clients: make(map[string]subscription),
 		cs:      cs,
 		rs:      rs,
 	}
+
+	// disconnect all the clients on quit
+	go func() {
+		select {
+		case <-quitChan:
+			for _, v := range service.clients {
+				v.quit <- true
+			}
+		}
+	}()
+
+	return service
 }
 
-func (s *ChatService) Disconnect(userId string) {
-	delete(s.clients, userId)
+func (s *ChatService) Connect(userId string, ws *websocket.Conn) {
+	mesgChan := make(chan []byte)
+	quitChan := make(chan interface{})
+	s.clients[userId] = subscription{
+		message: mesgChan,
+		quit:    quitChan,
+	}
+	go writeLoop(mesgChan, quitChan, ws)
+}
+
+func (s *ChatService) Disconnect(userId string) error {
+	if sub, ok := s.clients[userId]; ok {
+		sub.quit <- true
+		delete(s.clients, userId)
+		return nil
+	}
+	return cicada.ErrorNotFound
+}
+
+func (s *ChatService) SendMessage(m cicada.ChatMessage) error {
+	r, err := s.rs.Get(m.RoomId)
+	if err != nil {
+		return errors.New("no room with id " + m.RoomId)
+	}
+
+	err = s.cs.Save(m)
+	if err != nil {
+		return err
+	}
+
+	bytes, err := json.Marshal(m)
+	if err != nil {
+		return err
+	}
+
+	for _, uid := range r.Members {
+		sub, ok := s.clients[uid]
+		if !ok {
+			continue
+		}
+		sub.message <- bytes
+	}
+	return nil
 }
 
 func (s *ChatService) CreateRoom(r cicada.Room) (cicada.Room, error) {
@@ -108,47 +166,27 @@ func systemMessage(roomId, text string) cicada.ChatMessage {
 	}
 }
 
-func (s *ChatService) SendMessage(m cicada.ChatMessage) error {
-	r, err := s.rs.Get(m.RoomId)
-	if err != nil {
-		return errors.New("no room with id " + m.RoomId)
-	}
-
-	err = s.cs.Save(m)
-	if err != nil {
-		return err
-	}
-
-	bytes, err := json.Marshal(m)
-	if err != nil {
-		return err
-	}
-
-	for _, uid := range r.Members {
-		ch, ok := s.clients[uid]
-		if !ok {
-			continue
-		}
-		ch <- bytes
-	}
-	return nil
-}
-
-func (s *ChatService) Connect(userId string, ws *websocket.Conn) {
-	ch := make(chan []byte)
-	s.clients[userId] = ch
-	go writeLoop(ch, ws) // TODO: this needs a done channel & context
-}
-
-func writeLoop(ch chan []byte, ws *websocket.Conn) {
+func writeLoop(ch chan []byte, quit chan interface{}, ws *websocket.Conn) {
+	defer ws.CloseNow()
 	for {
 		select {
-		case bytes := <-ch:
-			err := ws.Write(context.Background(), websocket.MessageText, bytes)
+		case <-quit:
+			break
+		case mesg := <-ch:
+			err := messageWithTimeout(mesg, ws)
 			if err != nil {
-				slog.Error("error writing to client", err)
 				break
 			}
 		}
 	}
+}
+
+func messageWithTimeout(mesg []byte, ws *websocket.Conn) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	err := ws.Write(ctx, websocket.MessageText, mesg)
+	if err != nil {
+		slog.Error("error writing to client", err)
+	}
+	return err
 }

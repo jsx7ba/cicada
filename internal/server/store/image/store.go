@@ -1,7 +1,7 @@
 package image
 
 import (
-	"cicada/internal/server/store"
+	"cicada"
 	"crypto/sha256"
 	"errors"
 	badger "github.com/dgraph-io/badger/v4"
@@ -63,7 +63,7 @@ func processError(e error) error {
 	}
 
 	if errors.Is(e, badger.ErrKeyNotFound) {
-		return store.ErrorNotFound
+		return cicada.ErrorNotFound
 	}
 
 	return e

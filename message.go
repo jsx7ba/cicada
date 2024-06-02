@@ -13,7 +13,3 @@ type ChatMessage struct {
 	Text   string    `clover:"text" json:"text"`
 	Images []Image   `clover:"text" json:"images"`
 }
-
-type RegisterMessage struct {
-	UserId string `json:"userId"`
-}

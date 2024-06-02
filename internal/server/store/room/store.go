@@ -2,7 +2,6 @@ package room
 
 import (
 	"cicada"
-	"cicada/internal/server/store"
 	"errors"
 	"github.com/ostafen/clover/v2"
 	"github.com/ostafen/clover/v2/document"
@@ -95,13 +94,32 @@ func (s *Store) Get(id string) (cicada.Room, error) {
 	return r, err
 }
 
+func (s *Store) GetAll() ([]cicada.Room, error) {
+	q := query.NewQuery(collection)
+	docs, err := s.db.FindAll(q)
+	if e := processError(err); e != nil {
+		return nil, e
+	}
+
+	rooms := make([]cicada.Room, len(docs))
+	for i, d := range docs {
+		r := cicada.Room{}
+		err = d.Unmarshal(&r)
+		if err != nil {
+			break
+		}
+		rooms[i] = r
+	}
+	return rooms, err
+}
+
 func processError(e error) error {
 	if e == nil {
 		return nil
 	}
 
 	if errors.Is(e, clover.ErrDocumentNotExist) {
-		return store.ErrorNotFound
+		return cicada.ErrorNotFound
 	}
 
 	return e

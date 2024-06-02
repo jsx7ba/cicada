@@ -5,16 +5,29 @@ import (
 	"cicada/internal/server/store/chat"
 	"cicada/internal/server/store/image"
 	"cicada/internal/server/store/room"
+	"context"
 	badger "github.com/dgraph-io/badger/v4"
 	clover "github.com/ostafen/clover/v2"
 	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"time"
 )
 
 func main() {
+	err := run()
+	if err != nil {
+		slog.Error(err.Error())
+		os.Exit(1)
+	}
+	os.Exit(0)
+}
+
+func run() error {
 	if len(os.Args) != 2 {
 		log.Fatal("expected exactly one argument for listen address")
 	}
@@ -30,19 +43,42 @@ func main() {
 	objDb := objStore("/tmp")
 	defer objDb.Close()
 
+	quitChan := make(chan interface{})
+	chatService := server.New(quitChan, chat.NewStore(objDb), room.NewStore(objDb))
+
 	h := &HttpHandler{
-		server.New(chat.NewStore(objDb), room.NewStore(objDb)),
+		chatService,
 		image.NewStore(kvDb),
 	}
 
-	//http.HandlerFunc("GET /chatlog", h.ChatLog)
 	http.HandleFunc("POST /room", h.CreateRoom)
-	http.HandleFunc("POST /message", h.ProcessMessage)
-	http.HandleFunc("POST /register", h.Register)
-	http.HandleFunc("POST /unregister", h.Unregister)
+	http.HandleFunc("PUT /room/:id:", h.Room)
+	http.HandleFunc("POST /message", h.SendMessage)
+	http.HandleFunc("POST /register", h.Connect)
+	http.HandleFunc("POST /unregister", h.Disconnect)
 	http.HandleFunc("GET /image/:id:", h.GetImage)
 	s := &http.Server{}
-	s.Serve(l)
+
+	errChan := make(chan error)
+	go func() {
+		errChan <- s.Serve(l)
+	}()
+
+	sigs := make(chan os.Signal)
+	signal.Notify(sigs, os.Interrupt)
+
+	select {
+	case err := <-errChan:
+		log.Printf("failed to serve: %v", err)
+	case sig := <-sigs:
+		quitChan <- true
+		log.Printf("terminating: %v", sig)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	return s.Shutdown(ctx)
 }
 
 func makeTempDir(prefix, dbName string) string {
