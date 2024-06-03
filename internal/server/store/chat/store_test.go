@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -71,4 +72,75 @@ func TestSave(t *testing.T) {
 		fmt.Println("expected: ", m)
 		fmt.Println("got:      ", m2)
 	}
+}
+
+func TestPagingEmpty(t *testing.T) {
+	db, dir := database()
+	defer os.Remove(filepath.Join(dir, "data.db"))
+	defer db.Close()
+
+	s := NewStore(db)
+	messages := generateMessages("237", 10)
+
+	for i := 0; i != 10; i++ {
+		err := s.Save(messages[i])
+		if err != nil {
+			t.Fatal("unable to save messages", err)
+		}
+	}
+	for i := 0; i != 100; i++ {
+		cm, err := s.GetWindow("237", i, 1)
+		if err != nil {
+			t.Fatal("unable get messages", err)
+		}
+		if i < 10 && len(cm) != 1 {
+			t.Fatal("slice length didn't match the window size")
+		} else if i > 10 && len(cm) != 0 {
+			t.Fatal("slice length should be zero")
+		}
+	}
+}
+
+func TestPaging(t *testing.T) {
+	db, dir := database()
+	defer os.Remove(filepath.Join(dir, "data.db"))
+	defer db.Close()
+
+	s := NewStore(db)
+	messages := generateMessages("237", 10)
+
+	for i := 0; i != 10; i++ {
+		err := s.Save(messages[i])
+		if err != nil {
+			t.Fatal("unable to save messages", err)
+		}
+	}
+
+	for i := 0; i != 10; i++ {
+		cm, err := s.GetWindow("237", i, 1)
+		if err != nil {
+			t.Fatal("unable get messages", err)
+		}
+		if len(cm) != 1 {
+			t.Fatal("slice length didn't match the window size")
+		}
+		fmt.Println(cm[0].Text)
+	}
+
+}
+
+func generateMessages(roomId string, count int) []cicada.ChatMessage {
+	now := time.Now()
+	messages := make([]cicada.ChatMessage, count)
+	for i := 0; i != count; i++ {
+		m := cicada.ChatMessage{
+			Id:     uuid.NewV4().String(),
+			Date:   now.Add(time.Second + time.Duration(i)),
+			RoomId: roomId,
+			Sender: "justin@justin.com",
+			Text:   "the crow flies at midnight" + strconv.Itoa(i),
+		}
+		messages[i] = m
+	}
+	return messages
 }
