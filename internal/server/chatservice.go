@@ -146,7 +146,14 @@ func (s *ChatService) LeaveRoom(userId, roomId string) error {
 
 	// if there are no more users in the room, delete the room and the chat associated with it
 	if len(r.Members) == 0 {
-		err = s.rs.Delete(roomId)
+		// TODO: how to handle this better?
+		_, err = s.rs.Get(roomId)
+		if err == nil {
+			err = s.cs.Delete(roomId)
+			if err == nil {
+				err = s.rs.Delete(roomId)
+			}
+		}
 	} else {
 		delete(s.clients, userId)
 		err = s.rs.Update(r)

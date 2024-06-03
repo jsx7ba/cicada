@@ -2,6 +2,7 @@ package chat
 
 import (
 	"cicada"
+	"errors"
 	"github.com/ostafen/clover/v2"
 	"github.com/ostafen/clover/v2/document"
 	"github.com/ostafen/clover/v2/query"
@@ -69,4 +70,22 @@ func (s *Store) GetWindow(roomId string, from, size int) ([]cicada.ChatMessage, 
 		}
 	}
 	return messages, nil
+}
+
+func (s *Store) Delete(roomId string) error {
+	q := query.NewQuery(collection).
+		Where(query.Field("roomId").Eq(roomId))
+	return processError(s.db.Delete(q))
+}
+
+func processError(e error) error {
+	if e == nil {
+		return nil
+	}
+
+	if errors.Is(e, clover.ErrDocumentNotExist) {
+		return cicada.ErrorNotFound
+	}
+
+	return e
 }
