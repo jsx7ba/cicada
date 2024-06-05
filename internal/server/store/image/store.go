@@ -3,6 +3,7 @@ package image
 import (
 	"cicada"
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	badger "github.com/dgraph-io/badger/v4"
 )
@@ -43,18 +44,18 @@ func (r *Store) Delete(id string) error {
 	return processError(err)
 }
 
-func (r *Store) Create(bytes []byte) (string, error) {
+func (r *Store) Put(bytes []byte) (string, error) {
 	hasher := sha256.New()
 	hasher.Write(bytes)
-	id := hasher.Sum(nil)
+	id := hex.EncodeToString(hasher.Sum(nil))
 	err := r.db.Update(func(txn *badger.Txn) error {
-		return txn.Set(id, bytes)
+		return txn.Set([]byte(id), bytes)
 	})
 
 	if err != nil {
 		return "", err
 	}
-	return string(id), nil
+	return id, nil
 }
 
 func processError(e error) error {
