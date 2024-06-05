@@ -43,7 +43,7 @@ func NewStore(db *clover.DB) *Store {
 	return &Store{db: db}
 }
 
-func (s *Store) Create(r cicada.Room) (string, error) {
+func (s *Store) Put(r cicada.Room) (string, error) {
 	docId := uuid.NewV4().String()
 	r.Id = docId
 	doc := document.NewDocumentOf(r)
@@ -87,6 +87,10 @@ func (s *Store) Get(id string) (cicada.Room, error) {
 	r := cicada.Room{}
 	q := query.NewQuery(collection).Where(query.Field("id").Eq(id))
 	doc, err := s.db.FindFirst(q)
+	if doc == nil {
+		return r, cicada.ErrorNotFound
+	}
+
 	if e := processError(err); e != nil {
 		return r, e
 	}

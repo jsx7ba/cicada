@@ -93,7 +93,7 @@ func (s *ChatService) SendMessage(m cicada.ChatMessage) error {
 }
 
 func (s *ChatService) CreateRoom(r cicada.Room) (cicada.Room, error) {
-	id, err := s.rs.Create(r)
+	id, err := s.rs.Put(r)
 	if err != nil {
 		return cicada.Room{}, err
 	}
