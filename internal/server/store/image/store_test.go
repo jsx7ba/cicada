@@ -22,8 +22,8 @@ func database() (*badger.DB, string) {
 
 func TestRoundTrip(t *testing.T) {
 	db, dbDir := database()
-	defer os.RemoveAll(dbDir)
 	defer db.Close()
+	defer os.RemoveAll(dbDir)
 
 	image := make([]byte, 1024)
 	_, err := rand.Read(image)
@@ -56,8 +56,8 @@ func TestRoundTrip(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	db, dbDir := database()
-	defer os.RemoveAll(dbDir)
 	defer db.Close()
+	defer os.RemoveAll(dbDir)
 
 	image := make([]byte, 1024)
 	_, err := rand.Read(image)

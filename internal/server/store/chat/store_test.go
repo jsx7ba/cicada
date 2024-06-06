@@ -26,8 +26,8 @@ func database() (*clover.DB, string) {
 
 func TestSave(t *testing.T) {
 	db, dir := database()
-	defer os.Remove(filepath.Join(dir, "data.db"))
 	defer db.Close()
+	defer os.Remove(filepath.Join(dir, "data.db"))
 
 	m := cicada.ChatMessage{
 		Id:     uuid.NewV4().String(),
@@ -76,8 +76,8 @@ func TestSave(t *testing.T) {
 
 func TestPagingEmpty(t *testing.T) {
 	db, dir := database()
-	defer os.Remove(filepath.Join(dir, "data.db"))
 	defer db.Close()
+	defer os.Remove(filepath.Join(dir, "data.db"))
 
 	s := NewStore(db)
 	messages := generateMessages("237", 10)
@@ -103,8 +103,8 @@ func TestPagingEmpty(t *testing.T) {
 
 func TestPaging(t *testing.T) {
 	db, dir := database()
-	defer os.Remove(filepath.Join(dir, "data.db"))
 	defer db.Close()
+	defer os.Remove(filepath.Join(dir, "data.db"))
 
 	s := NewStore(db)
 	messages := generateMessages("237", 10)
