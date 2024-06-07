@@ -80,7 +80,16 @@ func (s *Store) GetForUser(id string) ([]cicada.Room, error) {
 
 func (s *Store) Delete(id string) error {
 	q := query.NewQuery(collection).Where(query.Field("id").Eq(id))
-	return processError(s.db.Delete(q))
+	var err error
+	var exists bool
+	if exists, err = s.db.Exists(q); !exists {
+		return cicada.ErrorNotFound
+	}
+
+	if err == nil {
+		err = s.db.Delete(q)
+	}
+	return processError(err)
 }
 
 func (s *Store) Get(id string) (cicada.Room, error) {

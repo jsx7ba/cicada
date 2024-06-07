@@ -38,8 +38,12 @@ func (r *Store) Get(id string) ([]byte, error) {
 
 func (r *Store) Delete(id string) error {
 	err := r.db.Update(func(txn *badger.Txn) error {
-		err := txn.Delete([]byte(id))
-		return err
+		key := []byte(id)
+		_, err := txn.Get(key)
+		if err != nil {
+			return err
+		}
+		return txn.Delete(key)
 	})
 	return processError(err)
 }

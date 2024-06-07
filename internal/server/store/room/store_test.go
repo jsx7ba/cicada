@@ -167,8 +167,8 @@ func TestGetBad(t *testing.T) {
 
 func TestGetAll(t *testing.T) {
 	db, dir := database()
-	defer os.Remove(filepath.Join(dir, "data.db"))
 	defer db.Close()
+	defer os.Remove(filepath.Join(dir, "data.db"))
 
 	store := NewStore(db)
 
@@ -190,12 +190,12 @@ func TestGetAll(t *testing.T) {
 		},
 	}
 
-	for _, v := range rooms1 {
+	for i, v := range rooms1 {
 		id, err := store.Put(v)
 		if err != nil {
 			t.Fatal("unable to store room")
 		}
-		v.Id = id
+		rooms1[i].Id = id
 	}
 
 	rooms2, err := store.GetAll()
@@ -219,7 +219,7 @@ func TestGetAll(t *testing.T) {
 			t.Errorf("description mismatch, expected %s, got %s", r1.Description, r2.Description)
 		}
 		if !reflect.DeepEqual(r1.Members, r2.Members) {
-			t.Errorf("description mismatch, expected %s, got %s", r1.Description, r2.Description)
+			t.Errorf("members mismatch, expected %s, got %s", r1.Description, r2.Description)
 		}
 	}
 }
@@ -248,11 +248,11 @@ func TestGetAllEmpty(t *testing.T) {
 	}
 }
 
-// clover doesn't seem to return any way to surmise if the delete was successful.
+// clover doesn't seem to return any way to surmise if delete was successful.
 func TestDeleteBad(t *testing.T) {
 	db, dir := database()
-	defer os.Remove(filepath.Join(dir, "data.db"))
 	defer db.Close()
+	defer os.Remove(filepath.Join(dir, "data.db"))
 
 	store := NewStore(db)
 	err := store.Delete("asdfasdf")

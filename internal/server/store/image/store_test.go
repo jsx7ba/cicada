@@ -2,7 +2,9 @@ package image
 
 import (
 	"bytes"
+	"cicada"
 	"crypto/rand"
+	"errors"
 	"github.com/dgraph-io/badger/v4"
 	"log"
 	"log/slog"
@@ -78,5 +80,36 @@ func TestDelete(t *testing.T) {
 	err = store.Delete(id)
 	if err != nil {
 		t.Error("failed to delete image", err)
+	}
+}
+
+func TestBadDelete(t *testing.T) {
+	db, dbDir := database()
+	defer db.Close()
+	defer os.RemoveAll(dbDir)
+
+	store := NewStore(db)
+	err := store.Delete("asdf")
+	if err == nil {
+		t.Fatal("delete should have errored, but did not")
+	}
+	if !errors.Is(err, cicada.ErrorNotFound) {
+		t.Error("expected not found, got", err)
+	}
+}
+
+func TestBadGet(t *testing.T) {
+	db, dbDir := database()
+	defer db.Close()
+	defer os.RemoveAll(dbDir)
+
+	store := NewStore(db)
+	_, err := store.Get("asdf")
+	if err == nil {
+		t.Fatal("get should have errored but did not")
+	}
+
+	if !errors.Is(err, cicada.ErrorNotFound) {
+		t.Error("expected not found, got", err)
 	}
 }
